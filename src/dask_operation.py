@@ -51,7 +51,8 @@ class DaskOperation:
 
     def _compute_output(self):
         for i, out in enumerate(self.output_attrs):
-            self.__setattr__(out, self.__getattribute__(out).compute())
+            if type(self.__getattribute__(out)) == da.Array:
+                self.__setattr__(out, self.__getattribute__(out).compute())
 
     def _begin(self):
         try:
@@ -201,6 +202,7 @@ class SNR(DaskOperation):
     def _operation(self):
         tv = self.traces.astype(np.int16)
         lv = np.atleast_2d(self.labels).reshape(tv.shape[0], self.labels[0].size).astype(np.uint16)
+        tv = tv.rechunk({0: 'auto', 1: -1})
         
         # initialize output
         # snr = da.from_array(np.zeros((lv[0].size, tv.shape[1]), dtype=np.float64))
@@ -211,7 +213,10 @@ class SNR(DaskOperation):
         # cnt_unq = cnt_unq.compute()
 
         snr_intf = scalibSNR(nc=lv_unq.size)
-        # x = da.blockwise(snr_intf.fit_u, '', tv, 'nl', lv, 'nk', dtype=np.float64, concatenate=True, meta=np.array((1, ))).compute()
+        start = 0
+        for block in tv.blocks:
+            dask.delayed(snr_intf.fit_u)(block, lv[start:start+block.shape[0]]).compute(scheduler='sync')
+            start += block.shape[0]
         snr = snr_intf.get_snr()
 
         self._set_output(snr, 'snr')
