@@ -45,7 +45,7 @@ def encode_tracehandler_group(tile_x: int, tile_y: int) -> str:
 """
 For use accessing SCARR formatted datasets, not super clean but it works
 """
-class DaskZarrHandler:
+class ZarrHandler:
     def __init__(self, path: str, chunks: int | tuple = None):
         self.zarr_obj = get_zarr_obj(path)
         self.chunks = chunks if (chunks != None) else 'auto'

@@ -192,10 +192,5 @@ def main():
     return
 
 if __name__ == "__main__":
-    ctx = ray.init(runtime_env={"env_vars" : {"RAY_DEBUG_POST_MORTEM" : "1"}})
-    print(f"Ray Dashboard: {ctx.dashboard_url}")
-    enable_dask_on_ray()
-    with dask.annotate(ray_remote_args=dict(num_cpus=2, memory=8 * 1024 * 1024 * 1024)):
-        main()
-    ray.shutdown()
+    main()
     raise SystemExit()
