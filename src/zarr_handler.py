@@ -46,19 +46,16 @@ def encode_tracehandler_group(tile_x: int, tile_y: int) -> str:
 For use accessing SCARR formatted datasets, not super clean but it works
 """
 class DaskZarrHandler:
-    def __init__(self, path: str, chunksize: int = None):
+    def __init__(self, path: str, chunks: int | tuple = None):
         self.zarr_obj = get_zarr_obj(path)
-        self.chunksize = chunksize if (chunksize != None) else 'auto'
-        # print(f"Array keys: {[i for i in self.zarr_obj.array_keys()]}")
-        # print(f"members: {[i for i in self.zarr_obj.members(max_depth=12)]}")
-        # self.tiles = [i for i in self.zarr_obj.members(max_depth=1)]
+        self.chunks = chunks if (chunks != None) else 'auto'
     
-    def get_dask_array(self, tile_x: int, tile_y: int, array: str):
+    def get(self, array: str, tile_x: int = 0, tile_y: int = 0):
         group = encode_tracehandler_group(tile_x, tile_y)
         try:
-            return da.from_zarr(str(self.zarr_obj.store_path), component=group+'/'+array, chunks=(5000))
+            return da.from_zarr(str(self.zarr_obj.store_path), component=group+'/'+array, chunks=self.chunks)
         except AttributeError:
-            return da.from_zarr(str(self.zarr_obj.store.path), component=group+'/'+array, chunks=(5000))
+            return da.from_zarr(str(self.zarr_obj.store.path), component=group+'/'+array, chunks=self.chunks)
 
 
     class ArrayNames(Enum):
