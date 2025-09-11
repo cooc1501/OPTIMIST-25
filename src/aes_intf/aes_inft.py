@@ -1,5 +1,7 @@
 """
-Interface for interacting with tiny-aes lib to find intermediate values
+Python-facing interface for interacting with tiny-aes lib to find intermediate values
+(Calling native code without a build system is a bit unusual in python, apologies for 
+obscure code.)
 """
 
 from dataclasses import dataclass
@@ -9,11 +11,6 @@ from multiprocessing import Lock
 from . import tiny_aes
 from . import AES128, AES192, AES256
 import numpy as np
-
-# TODO: This can't hold a reference to the module because then it cannot
-# be serialized between processes :(
-
-# Making this work with multiprocessing might be tricky
 
 @dataclass
 class AESVars:
@@ -28,7 +25,6 @@ class AESObjs:
     lock = Lock()
 
 ops = {'sbox' : 0, 'shift': 1, 'mix': 2, 'add': 3, 'none': -1}
-
 
 def init_aes(aes_type: int = 128) -> AESObjs:
     def init_intf_vars(module) -> AESVars:
@@ -95,14 +91,19 @@ def array_to_bytes(a: np.ndarray) -> list[bytes]:
     return [a[idx].tobytes() for idx in range(a.shape[0])]
 
 """
-Since I can't pass the aes module or any cdata between processes, I need to have a global
-interface.
+since modules and cdata can't be shared between between processes, a single global interface is needed
 """
 global_aes_objs = {length : init_aes(length) for length in [128, 192, 256]}
 
 def find_int_values(keys: list[bytes] | np.ndarray, texts: list[bytes] | np.ndarray, aes_type: int, op: str = 'none', round: int = -1):
     return _find_int_values(keys, texts, global_aes_objs[aes_type], op, round)
 
+
+"""
+An instantiatable interface for the AES oracle.
+(This ended up not being used due to issues with multiprocessing, and 
+is funcionally identical to the code above)
+"""
 class AES_Intf:
     def __init__(self, aes_type: int = 128):
         self.ops = {'sbox' : 0, 'shift': 1, 'mix': 2, 'add': 3, 'none': -1}

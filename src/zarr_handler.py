@@ -20,7 +20,7 @@ def get_zarr_obj(path: str, verbose: bool = False) -> zarr.Array | zarr.Group:
     return dat
 
 """
-Zarr Group (containing LocalStore) --> DaskArray
+SCARR dataset format outline:
 
 The old dataset format uses a local store with the format as follows
 /                                                 [ root (group)]
@@ -31,11 +31,9 @@ The old dataset format uses a local store with the format as follows
         ├── plaintext (100000, 16) uint8          [ pt (array) ]
         └── traces (100000, 5000) uint16          [ trace (array) ]
 
-One thing I could do is make a compatability layer to use the old format with the new methods I'm
-working on. This would be pretty straight forward.
-Another thing I could do is make a slightly more generic dataset wrapper in a similar vain to the
-TraceHandler class. I think some very simple metadata (e.g. which array dimension traces are 
-oriented along) could be used to reshape the dataset before calculation if necessary.
+Another thing that could be made is slightly more generic dataset wrapper in a similar vain to the
+TraceHandler class. Minimal metadata (e.g. which array dimension traces are oriented along) could 
+be used to reshape the dataset before calculation if necessary.
 """
 
 
@@ -43,10 +41,10 @@ def encode_tracehandler_group(tile_x: int, tile_y: int) -> str:
     return f"/{tile_x}/{tile_y}"
 
 """
-For use accessing SCARR formatted datasets, not super clean but it works
+For use accessing SCARR datasets
 """
 class ZarrHandler:
-    def __init__(self, path: str, chunks: int | tuple = None):
+    def __init__(self, path: str, chunks: int | tuple | None = None):
         self.zarr_obj = get_zarr_obj(path)
         self.chunks = chunks if (chunks != None) else 'auto'
     
