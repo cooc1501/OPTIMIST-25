@@ -111,17 +111,16 @@ class NICV(GenericOperation):
         # initialize output
         nicv = da.from_array(np.zeros((lv[0].size, tv.shape[1]), dtype=np.float32))
 
-        for i in range(lv.shape[1]):
-            lv_unq, cnt_unq = np.unique(lv[:, i], return_counts=True)
-            lv_unq = lv_unq
-            cnt_unq = cnt_unq
+        lv_unq, cnt_unq = np.unique(lv, return_counts=True)
 
-            sums = da.blockwise(
-                self._accumulator_sum, 'xlj', tv, 'ij', lv[:, i], 'i', lv_unq, 'l', new_axes={'x': 2},
-                dtype=np.float32, concatenate=True, meta=np.array((lv_unq.size, tv.shape[1]))
-            )
+        sums = da.blockwise(
+            self._accumulator_sum_2, 'xklj', tv, 'ij', lv, 'ik', lv_unq, 'l', new_axes={'x': 2},
+            dtype=np.float32, concatenate=True, meta=np.array((lv_unq.size, tv.shape[1]))
+        )
+
+        for i in range(lv.shape[1]):  
             nicv[i] = da.blockwise(
-                self._finalize, 'j', sums[0], 'lj', sums[1], 'lj', cnt_unq, 'l',
+                self._finalize, 'j', sums[0, i], 'lj', sums[1, i], 'lj', cnt_unq, 'l',
                 dtype=np.float32, concatenate=True, meta=np.array((tv.shape[1], )) 
             )
         
@@ -139,6 +138,21 @@ class NICV(GenericOperation):
             sums[0, labels[row]] += traces[row, :]
             sums[1, labels[row]] += np.square(traces[row, :])
     
+        return sums
+
+    """
+    Performs the same operation as _accumulator_sum(), but for multiple dimensions of labels.
+    """
+    @staticmethod
+    @nb.njit(cache=True, parallel=True)
+    def _accumulator_sum_2(traces: np.ndarray, labels: np.ndarray, unique_labels: np.ndarray):
+        sums = np.zeros((2, labels.shape[1], unique_labels.shape[0], traces.shape[1]), dtype=np.float32)
+
+        for l in nb.prange(labels.shape[1]):
+            for row in nb.prange(traces.shape[0]):
+                sums[0, l, labels[row, l]] += traces[row, :]
+                sums[1, l, labels[row, l]] += np.square(traces[row, :])
+        
         return sums
 
     """
