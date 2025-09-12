@@ -168,6 +168,13 @@ class OracleAES(GenericOperation):
         obj._set_input(round, 'round')
         obj._set_input(step, 'step')
 
+        # specify input conditions
+        obj.input_conditions = [ 
+            obj.aes_type in [128, 192, 256], 
+            obj.keys.shape == obj.texts.shape,
+            obj.keys.shape[1] == 16
+        ]
+
         return obj
 
     def _operation(self):
