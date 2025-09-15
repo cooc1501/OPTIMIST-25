@@ -1,8 +1,13 @@
+from time import perf_counter_ns
+
 import dask
 import dask.array as da
+import dask.graph_manipulation
 import numpy as np
 import numba as nb
+import scalib.config
 from scalib.metrics import SNR as scalibSNR
+from scalib.tools import ContextExecutor as SCALIBExecutor
 
 from .aes_intf.aes_inft import find_int_values
 
@@ -232,12 +237,22 @@ class SNR(GenericOperation):
 
         snr_intf = scalibSNR(nc=lv_unq.size)
         start = 0
+        ts = []
         for block in tv.blocks:
-            # SCAlib requires context-var propagation to support multiprocessing, so this is computed
-            # synchronously. Still very fast since its written in rust though.
-            dask.delayed(snr_intf.fit_u)(block, lv[start:start+block.shape[0]]).compute(scheduler='sync')
+            ts.append(dask.delayed(snr_intf.fit_u)(block, lv[start:start+block.shape[0]]))
             start += block.shape[0]
-        snr = snr_intf.get_snr()
+
+        snr = dask.graph_manipulation.bind(dask.delayed(snr_intf.get_snr)(), tuple(ts))
 
         self._set_output(snr, 'snr')
 
+    # SCAlib implements its own threading, so we compute the result on the main thread
+    def _compute_output(self):
+        with scalib.config.Config(n_threads=8).activate():
+            for i, out in enumerate(self.output_attrs):
+                try:
+                    # scheduler='sync' executes compute on the main thread
+                    self.__setattr__(out, self.__getattribute__(out).compute(scheduler='sync'))
+                except Exception as e:
+                    print(f"Could not compute output for {__class__.__name__}")
+                    print(e)
